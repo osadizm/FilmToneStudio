@@ -26,9 +26,10 @@ header{display:flex;justify-content:space-between;align-items:center;border-bott
 .uploader input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
 .uploader button,.download,.sheet button{border:0;background:var(--ink);color:#fff;padding:14px 22px;font-weight:700;font-size:16px;cursor:pointer;border-radius:2px}
 .studio{display:none;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:38px;margin-top:35px}
-.previewWrap{background:#151612;min-height:480px;display:grid;place-items:center;position:sticky;top:18px;overflow:hidden}
+.previewWrap{background:#151612;min-height:480px;align-self:start;display:grid;place-items:center;position:sticky;top:18px;overflow:hidden}
 .preview{grid-area:1/1;width:100%;max-height:72vh;height:100%;object-fit:contain;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .filtered{z-index:1}
+canvas.preview{height:auto;max-width:100%}
 .flash{position:absolute;inset:0;pointer-events:none;z-index:2;background:radial-gradient(circle at 50% 38%,rgba(255,255,255,.46),rgba(255,249,230,.14) 39%,transparent 76%);mix-blend-mode:screen}
 .top{position:absolute;inset:14px 14px auto;z-index:3;display:flex;justify-content:space-between;align-items:center;gap:10px;color:#fff;font:700 11px monospace}
 .top button{border:0;background:#000a;color:#fff;padding:10px 12px;border-radius:2px}
@@ -73,7 +74,7 @@ header{display:flex;justify-content:space-between;align-items:center;border-bott
 <label class="uploader" id="uploader" for="file"><div><h2>เลือกรูปที่อยากแต่ง</h2><p>แตะเพื่อเลือกจากแกลเลอรี</p><span class="uploader-btn"><button type="button" id="pick">เลือกรูปภาพ</button></span><input id="file" type="file" accept="image/*"><p class="hint">รองรับ JPG, PNG, WEBP และ HEIC (iPhone)</p></div></label>
 <section class="studio" id="studio">
  <div class="previewWrap">
-  <img id="original" class="preview" alt="ภาพต้นฉบับ"><img id="filtered" class="preview filtered" alt="ภาพที่แต่ง">
+  <img id="original" class="preview" alt="ภาพต้นฉบับ"><img id="filtered" class="preview filtered" alt="ภาพที่แต่ง"><canvas id="graded" class="preview filtered" hidden></canvas>
   <i id="flash" class="flash" hidden></i>
   <div class="top"><button type="button" id="change">เปลี่ยนรูป</button><span id="current"></span></div>
   <button type="button" class="compare" id="compare">กดค้างดูต้นฉบับ</button>
@@ -93,19 +94,39 @@ header{display:flex;justify-content:space-between;align-items:center;border-bott
  <div class="row"><a id="dl" download>ดาวน์โหลดไฟล์</a><button type="button" class="ghost" id="close">ปิด</button></div>
 </div>
 <script>
-const P=[['Original','CLEAN','สีต้นฉบับ','none',''],['On-Camera Flash','FLASH','สว่างเด้ง เหมือนยิงแฟลช','contrast(1.16) saturate(1.1) brightness(1.12)','flash'],['PROVIA / Standard','FUJI','สมดุล เป็นธรรมชาติ','contrast(1.03) saturate(1.06) brightness(1.01)',''],['Velvia / Vivid','FUJI','สีสดและมีมิติ','contrast(1.12) saturate(1.42) brightness(1.02)',''],['ASTIA / Soft','FUJI','ผิวนุ่ม สีละมุน','contrast(.91) saturate(.91) brightness(1.06)',''],['Classic Chrome','FUJI','นุ่ม หม่น เล่าเรื่อง','contrast(.94) saturate(.78) brightness(1.03) sepia(.08)',''],['PRO Neg. Hi','FUJI','พอร์ตเทรตคมมีมิติ','contrast(1.09) saturate(.86) brightness(1.02)',''],['PRO Neg. Std','FUJI','พอร์ตเทรตนุ่มธรรมชาติ','contrast(.91) saturate(.79) brightness(1.05)',''],['Classic Negative','FUJI','วินเทจ สีเก่า มีคาแรกเตอร์','contrast(1.08) saturate(.74) brightness(.98) sepia(.16)',''],['Nostalgic Neg.','FUJI','อบอุ่น ฟุ้งแบบฟิล์มเก่า','contrast(.93) saturate(.88) brightness(1.08) sepia(.22)',''],['Eterna / Cinema','FUJI','โทนภาพยนตร์','contrast(.88) saturate(.72) brightness(1.04)',''],['Eterna Bleach Bypass','FUJI','ดิบ เทา คอนทราสต์สูง','contrast(1.2) saturate(.42) brightness(.96)',''],['ACROS','FUJI','ขาวดำละเอียดลึก','grayscale(1) contrast(1.19) brightness(1.02)',''],['Monochrome','FUJI','ขาวดำคลาสสิก','grayscale(1) contrast(1.08) brightness(1.01)',''],['Sepia','FUJI','น้ำตาลคลาสสิก','sepia(.75) contrast(.98) saturate(.72) brightness(1.04)',''],['Leica Look','LEICA','คม ลึก ผิวสวย','contrast(1.14) saturate(.92) brightness(1.01)',''],['Monochrom','LEICA','ขาวดำคลาสสิก','grayscale(1) contrast(1.18) brightness(1.02)',''],['Portra 400','KODAK','อบอุ่นเป็นธรรมชาติ','contrast(.94) saturate(.92) brightness(1.06) sepia(.14)',''],['Gold 200','KODAK','แดดทองวินเทจ','contrast(1.04) saturate(1.18) brightness(1.05) sepia(.2)',''],['Kodachrome','KODAK','แดงเด่น คอนทราสต์จัด','contrast(1.16) saturate(1.14) brightness(.98) sepia(.08)','']];
+const P=[['Original','CLEAN','สีต้นฉบับ','none',''],['On-Camera Flash','FLASH','สว่างเด้ง เหมือนยิงแฟลช','contrast(1.16) saturate(1.1) brightness(1.12)','flash'],['PROVIA / Standard','FUJI','สมดุล เป็นธรรมชาติ','contrast(1.03) saturate(1.06) brightness(1.01)',''],['Velvia / Vivid','FUJI','สีสดและมีมิติ','contrast(1.12) saturate(1.42) brightness(1.02)',''],['ASTIA / Soft','FUJI','ผิวนุ่ม สีละมุน','contrast(.91) saturate(.91) brightness(1.06)',''],['Classic Chrome','FUJI','นุ่ม หม่น เล่าเรื่อง','contrast(.94) saturate(.78) brightness(1.03) sepia(.08)',''],['PRO Neg. Hi','FUJI','พอร์ตเทรตคมมีมิติ','contrast(1.09) saturate(.86) brightness(1.02)',''],['PRO Neg. Std','FUJI','พอร์ตเทรตนุ่มธรรมชาติ','contrast(.91) saturate(.79) brightness(1.05)',''],['Classic Negative','FUJI','วินเทจ สีเก่า มีคาแรกเตอร์','contrast(1.08) saturate(.74) brightness(.98) sepia(.16)',''],['Nostalgic Neg.','FUJI','อบอุ่น ฟุ้งแบบฟิล์มเก่า','contrast(.93) saturate(.88) brightness(1.08) sepia(.22)',''],['Eterna / Cinema','FUJI','โทนภาพยนตร์','contrast(.88) saturate(.72) brightness(1.04)',''],['Eterna Bleach Bypass','FUJI','ดิบ เทา คอนทราสต์สูง','contrast(1.2) saturate(.42) brightness(.96)',''],['ACROS','FUJI','ขาวดำละเอียดลึก','grayscale(1) contrast(1.19) brightness(1.02)',''],['Monochrome','FUJI','ขาวดำคลาสสิก','grayscale(1) contrast(1.08) brightness(1.01)',''],['Sepia','FUJI','น้ำตาลคลาสสิก','sepia(.75) contrast(.98) saturate(.72) brightness(1.04)',''],['Leica Look','LEICA','คม ลึก ผิวสวย','contrast(1.14) saturate(.92) brightness(1.01)',''],['Monochrom','LEICA','ขาวดำคลาสสิก','grayscale(1) contrast(1.18) brightness(1.02)',''],['Portra 400','KODAK','อบอุ่นเป็นธรรมชาติ','contrast(.94) saturate(.92) brightness(1.06) sepia(.14)',''],['Gold 200','KODAK','แดดทองวินเทจ','contrast(1.04) saturate(1.18) brightness(1.05) sepia(.2)',''],['Kodachrome 64','KODAK · SLIDE','แดงลึก ฟ้าเข้ม เงาหนา','saturate(1.28) contrast(1.04)','',{s:.36,r:[0,1.02,1],g:[0,.97,.96],b:[0,.92,.9],vig:.18}],
+ ['Ektachrome E100','KODAK · SLIDE','ใส สะอาด อมฟ้านิดๆ','saturate(1.2) contrast(1.02)','',{s:.26,r:[0,1,.97],g:[0,1.01,.99],b:[.015,1.04,1.02]}],
+ ['Elite Chrome EBX','KODAK · SLIDE','สีจัดจ้าน แดง-ฟ้าเด้ง','saturate(1.5)','',{s:.32,r:[0,1.02,1.01],b:[0,.97,1]}],
+ ['Velvia 50','FUJI · SLIDE','เขียว-ฟ้าเข้มจัด เงาอมม่วง','saturate(1.58) contrast(1.03)','',{s:.4,r:[.02,.97,1],g:[0,.97,1],b:[.035,.95,1],vig:.12}],
+ ['Fortia SP','FUJI · SLIDE','สีเกินจริงสุดขั้ว','saturate(1.9) contrast(1.04)','',{s:.42,r:[0,1.03,1.02],g:[0,.98,1],b:[.02,.95,.98],vig:.15}],
+ ['Lomo LC-A','LOMO','ขอบมืด สีอิ่ม คอนทราสต์แรง','saturate(1.38)','',{s:.42,r:[0,1.03,1.02],g:[0,1,1],b:[.03,.96,.95],vig:.62}],
+ ['LomoChrome Purple','LOMO','ใบไม้ม่วง ฟ้าเขียว เหนือจริง','saturate(1.15)','',{mix:[.75,.4,-.15,.05,.15,.8,.1,.9,0],s:.3,vig:.3}],
+ ['LomoChrome Turquoise','LOMO','ฟ้าเป็นส้มทอง ผิวเป็นเทอร์ควอยซ์','saturate(1.12)','',{mix:[.15,.1,.75,.05,.85,.1,.75,.1,.15],s:.3,vig:.3}],
+ ['Redscale','LOMO','แดงส้มทั้งภาพ ร้อนแรง','saturate(1.1)','',{s:.3,r:[.04,1.15,1.04],g:[0,.95,.66],b:[0,.85,.28],vig:.35}],
+ ['Lomo X-Pro 200','SLIDE · CROSS','ไฮไลต์เหลือง-เขียว เงาฟ้า','saturate(1.28)','',{s:.4,r:[0,1.05,1,.08],g:[.02,1.1,1],b:[.17,.88,.76],vig:.38}],
+ ['Agfa CT X-Pro','SLIDE · CROSS','เขียวอมฟ้า ผิวเหลือง คอนทราสต์จัด','saturate(1.22)','',{s:.45,r:[0,.95,.92,.1],g:[.03,1.12,1.02],b:[.12,.9,.78],vig:.3}],
+ ['Provia X-Pro','SLIDE · CROSS','เขียวมิ้นต์ ผิวเหลืองทอง เงาฟ้า','saturate(1.25)','',{s:.42,r:[0,1,.95,.06],g:[.02,1.1,1.02],b:[.14,.92,.8],vig:.3}],
+ ['Ektachrome X-Pro','SLIDE · CROSS','ฟ้าไซแอนจัด ไฮไลต์ครีม ดุดัน','saturate(1.3)','',{s:.48,r:[0,.98,.97,.1],g:[.03,1.06,1],b:[.2,.95,.84],vig:.35}],
+ ['Velvia X-Pro','SLIDE · CROSS','แดงอมชมพู คอนทราสต์ดุดัน','saturate(1.3)','',{s:.5,r:[.03,1.12,1.04],g:[0,.95,.93],b:[.08,.97,.9],vig:.3}]];
 let src='',sel=1,name='photo',resultURL='',resultFile=null;
 const $=s=>document.querySelector(s),pres=$('#presets');
 P.forEach((p,i)=>{let b=document.createElement('button');b.type='button';b.className='preset';b.innerHTML=`<b>${p[1]}</b><strong>${p[0]}</strong><small>${p[2]}</small>`;b.onclick=()=>{sel=i;render()};pres.append(b)});
-function render(){let p=P[sel],op=$('#intensity').value/100;[...pres.children].forEach((b,i)=>b.classList.toggle('active',i===sel));const f=$('#filtered');f.style.filter=f.style.webkitFilter=p[3];f.style.opacity=op;$('#flash').hidden=p[4]!=='flash';$('#flash').style.opacity=op;$('#current').textContent=p[0];$('#percent').textContent=$('#intensity').value+'%'}
-function load(f){if(!f)return;if(f.type&&!f.type.startsWith('image/'))return;if(src)URL.revokeObjectURL(src);src=URL.createObjectURL(f);name=(f.name||'photo').replace(/\.[^.]+$/,'')||'photo';$('#original').src=src;$('#filtered').src=src;$('#uploader').style.display='none';$('.intro').style.display='none';$('#studio').style.display=window.innerWidth>760?'grid':'block';render();window.scrollTo(0,0)}
+let gradedFor=-1;
+function drawGraded(){ // preview for presets with a colour grade: same pixel pipeline as export, downscaled
+ const img=$('#original'),c=$('#graded');if(!img.naturalWidth||gradedFor===sel)return;
+ const s=Math.min(1,1400/Math.max(img.naturalWidth,img.naturalHeight));c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);
+ const x=c.getContext('2d');x.drawImage(img,0,0,c.width,c.height);const id=x.getImageData(0,0,c.width,c.height);applyFilter(id.data,P[sel][3],1,P[sel][5],c.width,c.height);x.putImageData(id,0,0);gradedFor=sel}
+function render(){let p=P[sel],op=$('#intensity').value/100;[...pres.children].forEach((b,i)=>b.classList.toggle('active',i===sel));const f=$('#filtered'),gc=$('#graded'),g=!!p[5];
+ f.hidden=g;gc.hidden=!g;if(g){drawGraded();gc.style.opacity=op}
+ f.style.filter=f.style.webkitFilter=g?'none':p[3];f.style.opacity=op;$('#flash').hidden=p[4]!=='flash';$('#flash').style.opacity=op;$('#current').textContent=p[0];$('#percent').textContent=$('#intensity').value+'%'}
+function load(f){if(!f)return;if(f.type&&!f.type.startsWith('image/'))return;if(src)URL.revokeObjectURL(src);src=URL.createObjectURL(f);name=(f.name||'photo').replace(/\.[^.]+$/,'')||'photo';gradedFor=-1;$('#original').src=src;$('#filtered').src=src;$('#original').onload=()=>{gradedFor=-1;render()};$('#uploader').style.display='none';$('.intro').style.display='none';$('#studio').style.display=window.innerWidth>760?'grid':'block';render();window.scrollTo(0,0)}
 $('#pick').onclick=e=>{e.preventDefault();$('#file').click()};
 $('#change').onclick=()=>{$('#file').value='';$('#file').click()};
 $('#file').onchange=e=>load(e.target.files[0]);
 $('#intensity').oninput=render;
 window.addEventListener('resize',()=>{if(src)$('#studio').style.display=window.innerWidth>760?'grid':'block'});
 // hold to compare with original
-const cmp=$('#compare'),showOrig=v=>{$('#filtered').style.visibility=v?'hidden':'';$('#flash').style.visibility=v?'hidden':''};
+const cmp=$('#compare'),showOrig=v=>{$('#filtered').style.visibility=$('#graded').style.visibility=v?'hidden':'';$('#flash').style.visibility=v?'hidden':''};
 ['pointerdown'].forEach(ev=>cmp.addEventListener(ev,e=>{e.preventDefault();showOrig(1)}));
 ['pointerup','pointercancel','pointerleave'].forEach(ev=>cmp.addEventListener(ev,()=>showOrig(0)));
 cmp.oncontextmenu=e=>e.preventDefault();
@@ -119,11 +140,19 @@ function matFor(n,a){ // 3x3 matrix + offset per W3C filter spec
  if(n==='grayscale'){a=Math.min(1,a);return{m:[.2126+.7874*(1-a),.7152-.7152*(1-a),.0722-.0722*(1-a),.2126-.2126*(1-a),.7152+.2848*(1-a),.0722-.0722*(1-a),.2126-.2126*(1-a),.7152-.7152*(1-a),.0722+.9278*(1-a)],o:0}}
  if(n==='sepia'){a=Math.min(1,a);return{m:[.393+.607*(1-a),.769-.769*(1-a),.189-.189*(1-a),.349-.349*(1-a),.686+.314*(1-a),.168-.168*(1-a),.272-.272*(1-a),.534-.534*(1-a),.131+.869*(1-a)],o:0}}
  return null}
-function applyFilter(d,str,op){
- const ops=parseFilter(str).map(([n,a])=>matFor(n,a)).filter(Boolean);if(!ops.length)return;
- const cl=v=>v<0?0:v>255?255:v;
- for(let i=0;i<d.length;i+=4){let r=d[i],g=d[i+1],b=d[i+2],r0=r,g0=g,b0=b;
-  for(const {m,o} of ops){const R=cl(m[0]*r+m[1]*g+m[2]*b+o),G=cl(m[3]*r+m[4]*g+m[5]*b+o),B=cl(m[6]*r+m[7]*g+m[8]*b+o);r=R;g=G;b=B}
+/* Colour grade for slide / cross-process / Lomo looks:
+   mix = 3x3 channel matrix (applied first), r/g/b = [lift, gamma, gain, extra S] per-channel curve,
+   s = S-curve strength for all channels (slide-film contrast), vig = vignette strength */
+function lutFor(c,S){const[l=0,ga=1,k=1,s2=0]=c||[],t=S+s2,L=new Float32Array(256);
+ for(let i=0;i<256;i++){let y=l+(k-l)*Math.pow(i/255,1/ga);y=y<0?0:y>1?1:y;y-=t*Math.sin(2*Math.PI*y)/(2*Math.PI);L[i]=y*255}return L}
+function applyFilter(d,str,op,G,w,h){
+ const ops=parseFilter(str).map(([n,a])=>matFor(n,a)).filter(Boolean);if(!ops.length&&!G)return;
+ const cl=v=>v<0?0:v>255?255:v,mx=G&&G.mix,S=G&&G.s||0,lut=G&&(S||G.r||G.g||G.b)?[lutFor(G.r,S),lutFor(G.g,S),lutFor(G.b,S)]:null,vg=G&&G.vig||0;
+ for(let i=0,p=0;i<d.length;i+=4,p++){let r=d[i],g=d[i+1],b=d[i+2],r0=r,g0=g,b0=b;
+  if(mx){const R=cl(mx[0]*r+mx[1]*g+mx[2]*b),G2=cl(mx[3]*r+mx[4]*g+mx[5]*b),B=cl(mx[6]*r+mx[7]*g+mx[8]*b);r=R;g=G2;b=B}
+  if(lut){r=lut[0][r|0];g=lut[1][g|0];b=lut[2][b|0]}
+  for(const {m,o} of ops){const R=cl(m[0]*r+m[1]*g+m[2]*b+o),G2=cl(m[3]*r+m[4]*g+m[5]*b+o),B=cl(m[6]*r+m[7]*g+m[8]*b+o);r=R;g=G2;b=B}
+  if(vg){const dx=(p%w)/w*2-1,dy=((p/w)|0)/h*2-1,f=1-vg*Math.pow((dx*dx+dy*dy)/2,1.25);r*=f;g*=f;b*=f}
   d[i]=r0+(r-r0)*op;d[i+1]=g0+(g-g0)*op;d[i+2]=b0+(b-b0)*op}}
 
 const btn=$('#download');
@@ -137,7 +166,7 @@ btn.onclick=async()=>{
   c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);
   const x=c.getContext('2d'),op=$('#intensity').value/100,p=P[sel];
   x.drawImage(img,0,0,c.width,c.height);
-  if(sel&&op>0){const id=x.getImageData(0,0,c.width,c.height);applyFilter(id.data,p[3],op);x.putImageData(id,0,0);
+  if(sel&&op>0){const id=x.getImageData(0,0,c.width,c.height);applyFilter(id.data,p[3],op,p[5],c.width,c.height);x.putImageData(id,0,0);
    if(p[4]==='flash'){const g=x.createRadialGradient(c.width*.5,c.height*.38,0,c.width*.5,c.height*.38,Math.max(c.width,c.height)*.76);
     g.addColorStop(0,'rgba(255,255,255,.46)');g.addColorStop(.39,'rgba(255,249,230,.14)');g.addColorStop(1,'rgba(255,255,255,0)');
     x.globalCompositeOperation='screen';x.globalAlpha=op;x.fillStyle=g;x.fillRect(0,0,c.width,c.height);x.globalAlpha=1;x.globalCompositeOperation='source-over'}}
