@@ -3,7 +3,7 @@
   "short_name": "Film Tone",
   "description": "แต่งรูปโทนฟิล์ม ประมวลผลบนเครื่อง",
   "lang": "th",
-  "start_url": "./Film-Tone-Studio.html",
+  "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f2efe6",
